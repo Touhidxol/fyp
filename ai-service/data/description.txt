@@ -1,1 +1,1 @@
-Put resources locally inside this data directory
+Store all local resources in the "ai-service/data" directory.
