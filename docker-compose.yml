@@ -1,14 +1,48 @@
 services:
   mongodb:
     image: mongo:8
-    container_name: exam-platform-mongodb
-    restart: unless-stopped
-
     ports:
       - "27017:27017"
-
     volumes:
       - mongodb_data:/data/db
 
+  qdrant:
+    image: qdrant/qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  backend:
+    image: node:22
+    working_dir: /app
+    tty: true
+    stdin_open: true
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    image: node:22
+    working_dir: /app
+    tty: true
+    stdin_open: true
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+
+  ai-service:
+    image: python:3.12
+    working_dir: /app
+    tty: true
+    stdin_open: true
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ai-service:/app
+
 volumes:
   mongodb_data:
+  qdrant_data:
