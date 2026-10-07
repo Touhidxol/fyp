@@ -8,10 +8,9 @@ import {
 
 export const create = async (req, res) => {
     try {
-        const { userId, title, description } = req.body;
-
+        const { title, description } = req.body;
         const notebook = await createNotebook({
-            userId,
+            userId: req.user.id,
             title,
             description
         });
@@ -30,7 +29,7 @@ export const create = async (req, res) => {
 
 export const getAll = async (req, res) => {
     try {
-        const notebooks = await getUserNotebooks(req.query.userId);
+        const notebooks = await getUserNotebooks(req.user.id);
 
         res.json({
             success: true,
@@ -46,10 +45,7 @@ export const getAll = async (req, res) => {
 
 export const getOne = async (req, res) => {
     try {
-        const notebook = await getNotebookById(
-            req.params.id,
-            req.query.userId
-        );
+        const notebook = await getNotebookById(req.params.id, req.user.id);
 
         if (!notebook) {
             return res.status(404).json({
@@ -76,7 +72,7 @@ export const update = async (req, res) => {
 
         const notebook = await updateNotebook(
             req.params.id,
-            req.body.userId,
+            req.user.id,
             { title, description }
         );
 
@@ -101,10 +97,7 @@ export const update = async (req, res) => {
 
 export const remove = async (req, res) => {
     try {
-        const notebook = await deleteNotebook(
-            req.params.id,
-            req.query.userId
-        );
+        const notebook = await deleteNotebook(req.params.id, req.user.id);
 
         if (!notebook) {
             return res.status(404).json({
