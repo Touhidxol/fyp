@@ -16,8 +16,8 @@ load_dotenv()
 # Application Metadata
 # -------------------------------------------------------------
 
-user_id = "001"
-notebook_id = "0001"
+user_id = "6ac63252592bcd3116cca749"
+notebook_id = "6ac63449592bcd3116cca74a"
 document_id = str(uuid.uuid4())
 
 # PDF
