@@ -73,7 +73,7 @@ def classify_request(user_query):
     """
 
     interaction = client.interactions.create(
-        model="gemini-3.5-flash",
+        model="gemini-3.5-flash-lite",
         input=prompt,
         response_format=[
             {
@@ -211,7 +211,7 @@ def generate_test(user_query, context):
 
 
     response = client.interactions.create(
-        model="gemini-3.5-flash",
+        model="gemini-3.5-flash-lite",
         input=prompt,
         response_format=[
             {
