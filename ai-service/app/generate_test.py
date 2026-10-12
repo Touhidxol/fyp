@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import models
+from typing import Literal
 
 load_dotenv()
 
@@ -91,6 +92,7 @@ def classify_request(user_query):
 # 6. Retrieve Relevant Content
 # --------------------------------------------------
 
+
 def retrieve_context(classification, notebook_id: str):
 
     # langchain_qdrant stores document metadata under the "metadata" key,
@@ -117,9 +119,11 @@ def retrieve_context(classification, notebook_id: str):
 
     return docs
 
+
 # --------------------------------------------------
 # 7. Build Context
 # --------------------------------------------------
+
 
 def build_context(docs):
 
@@ -149,9 +153,12 @@ def build_context(docs):
 class Question(BaseModel):
     question_number: int
     question: str
+    type: Literal["mcq", "short_answer"]
+    options: list[str] = []  # 4 options for mcq, empty otherwise
     marks: int
     difficulty: str
-    answer: str
+    answer: str  # for mcq: must exactly match one option
+    explanation: str | None = None
 
 
 class Section(BaseModel):
@@ -175,40 +182,24 @@ class GeneratedTest(BaseModel):
 # --------------------------------------------------
 
 
-def generate_test(user_query, context):
-
+def generate_test(user_query, context, num_questions, difficulty, duration_minutes):
+    duration_line = (
+        f"The test duration must be {duration_minutes} minutes."
+        if duration_minutes
+        else "Choose a reasonable duration."
+    )
     prompt = f"""
-        You are an AI exam-generation assistant.
+        ...existing prompt...
 
-        Generate a complete examination test based ONLY on
-        the provided study material.
-
-        User request:
-        {user_query}
-
-        Study material:
-        {context}
-
-        Requirements:
-
-        1. Generate meaningful exam questions.
-        2. Do not invent information outside the provided material if that is sufficient.
-        3. Follow the user's requested topic/content.
-        4. Organize the questions into logical sections.
-        5. Assign appropriate marks to every question.
-        6. Assign a difficulty level:
-            - Easy
-            - Medium
-            - Hard
-        7. Include the correct answer for every question.
-        8. Generate a suitable test name.
-        9. Choose a reasonable duration based on the number and difficulty of questions.
-        10. Ensure total_marks equals the sum of marks of all questions.
-        11. Keep the test suitable for an academic examination.
-
-        Return the test using the provided JSON schema.
+        Hard constraints (these override the user request if they conflict):
+        - Generate EXACTLY {num_questions} questions in total.
+        - Overall difficulty: {difficulty}. If "Mixed", spread Easy/Medium/Hard.
+        - {duration_line}
+        - Use "mcq" for factual/conceptual questions (exactly 4 options, the
+          answer must be identical to one option) and "short_answer" for
+          explain/derive/compare questions (options must be empty).
+        - Add a one-sentence explanation for every answer.
     """
-
 
     response = client.interactions.create(
         model="gemini-3.5-flash-lite",
@@ -224,9 +215,11 @@ def generate_test(user_query, context):
 
     return GeneratedTest.model_validate_json(response.output_text)
 
+
 # --------------------------------------------------
 # fastAPI requests
 # --------------------------------------------------
+
 
 def generate_test_for_request(user_query: str, notebook_id: str) -> dict:
     classification = classify_request(user_query)
@@ -238,6 +231,7 @@ def generate_test_for_request(user_query: str, notebook_id: str) -> dict:
     context = build_context(docs)
     test = generate_test(user_query, context)
     return test.model_dump()  # plain dict, FastAPI turns it into JSON
+
 
 # --------------------------------------------------
 # MAIN

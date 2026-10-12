@@ -10,7 +10,10 @@ import {
 } from "../services/test.service.js";
 
 const generateSchema = z.object({
-    query: z.string().trim().min(3, "Describe the test you want")
+    query: z.string().trim().min(3, "Describe the test you want"),
+    numQuestions: z.number().int().min(1).max(50).default(10),
+    difficulty: z.enum(["Easy", "Moderate", "Challenging", "Mixed"]).default("Moderate"),
+    duration: z.number().int().min(5).max(180).optional()
 });
 
 const notFound = (res, what) =>

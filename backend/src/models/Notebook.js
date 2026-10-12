@@ -14,7 +14,15 @@ const documentSchema = new mongoose.Schema(
             default: "uploaded"
         }
     },
-    { timestamps: true }
+    {
+        timestamps: true,
+        toJSON: {
+            transform: (doc, ret) => {
+                delete ret.path; // hide server filesystem paths
+                return ret;
+            }
+        }
+    }
 );
 
 const notebookSchema = new mongoose.Schema(
