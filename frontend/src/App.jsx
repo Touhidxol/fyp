@@ -1,11 +1,13 @@
 import React from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
 import './App.css'
 
-import Sidebar from './components/Sidebar'
-import Navbar from './components/Navbar'
+import AuthProvider from './context/AuthProvider'
+import ProtectedLayout from './components/ProtectedLayout'
 
+import Login from './pages/Login'
+import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Notebooks from './pages/Notebooks'
 import NotebookDetail from './pages/NotebookDetail'
@@ -17,26 +19,26 @@ import Results from './pages/Results'
 const App = () => {
   return (
     <BrowserRouter>
-      <div className="app">
-        <div className="shell">
-          <Sidebar />
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
-          <div className="content">
-            <Navbar />
+          {/* Everything below needs a logged-in user */}
+          <Route element={<ProtectedLayout />}>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/notebooks" element={<Notebooks />} />
+            <Route path="/notebooks/:id" element={<NotebookDetail />} />
+            <Route path="/create-test" element={<CreateTest />} />
+            <Route path="/tests" element={<Tests />} />
+            <Route path="/exam" element={<Exam />} />
+            <Route path="/results" element={<Results />} />
+          </Route>
 
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/notebooks" element={<Notebooks />} />
-              <Route path="/notebooks/:id" element={<NotebookDetail />} />
-              <Route path="/create-test" element={<CreateTest />} />
-              <Route path="/tests" element={<Tests />} />
-              <Route path="/exam" element={<Exam />} />
-              <Route path="/results" element={<Results />} />
-            </Routes>
-          </div>
-        </div>
-      </div>
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
