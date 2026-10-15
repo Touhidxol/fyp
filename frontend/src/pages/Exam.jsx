@@ -1,37 +1,24 @@
 import React from 'react'
+import EmptyState from '../components/EmptyState'
 
-const Exam = () => {
-    return (
-        <div>
-            <h1>Exam</h1>
-            <p>Question 1 of 10</p>
-
-            <h3>What is the capital of France?</h3>
-
-            <div>
-                <label>
-                    <input type="radio" name="answer" /> Paris
-                </label>
-                <br />
-                <label>
-                    <input type="radio" name="answer" /> London
-                </label>
-                <br />
-                <label>
-                    <input type="radio" name="answer" /> Berlin
-                </label>
-                <br />
-                <label>
-                    <input type="radio" name="answer" /> Madrid
-                </label>
+const Exam = () => (
+    <main className="container">
+        <section className="page">
+            <div className="page-header">
+                <div>
+                    <h1>Exam</h1>
+                    <p>Take a generated test under timed conditions.</p>
+                </div>
             </div>
 
-            <br />
-
-            <button>Previous</button>
-            <button>Next</button>
-        </div>
-    )
-}
+            <EmptyState
+                title="No exam in progress"
+                text="Taking exams isn't available yet. Your generated tests are listed under Tests."
+                actionTo="/tests"
+                actionLabel="Browse tests"
+            />
+        </section>
+    </main>
+)
 
 export default Exam

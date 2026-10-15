@@ -1,5 +1,6 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
+import { useAuth } from '../context/useAuth'
 
 const icons = {
     dashboard: (
@@ -56,12 +57,13 @@ const links = [
 ]
 
 const Sidebar = () => {
+    const { user } = useAuth()
     return (
         <aside className="sidebar">
             <div className="sidebar-brand">
                 <div className="sidebar-brand-mark">Æ</div>
                 <div className="sidebar-brand-text">
-                    <strong>Aptura</strong>
+                    <strong>PrepZeno</strong>
                     <span>Academic Intelligence</span>
                 </div>
             </div>
@@ -80,8 +82,8 @@ const Sidebar = () => {
             </nav>
 
             <div className="sidebar-footer">
-                <strong>Study streak</strong>
-                12 days running
+                <strong>{user?.name}</strong>
+                {user?.email}
             </div>
         </aside>
     )
