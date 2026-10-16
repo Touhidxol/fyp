@@ -1,9 +1,21 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { allTests } from '../data/mockData'
+import { listTests } from '../api/tests'
 import StatusPill from '../components/StatusPill'
+import { formatDate } from '../utils/format'
 
 const Tests = () => {
+    const [tests, setTests] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState('')
+
+    useEffect(() => {
+        listTests()
+            .then(setTests)
+            .catch((err) => setError(err.message))
+            .finally(() => setLoading(false))
+    }, [])
+
     return (
         <main className="container">
             <section className="page">
@@ -14,23 +26,33 @@ const Tests = () => {
                     </div>
                 </div>
 
+                {error && <div className="form-error" style={{ marginBottom: 16 }}>{error}</div>}
+
                 <div className="ledger">
-                    {allTests.map((test) => (
-                        <div className="ledger-row" key={test.id}>
-                            <StatusPill status={test.status} />
+                    {tests.map((test) => (
+                        <div className="ledger-row" key={test._id}>
+                            <StatusPill status="ready" />
                             <div className="ledger-body">
                                 <h4>{test.title}</h4>
-                                <p>{test.questions} questions</p>
+                                <p>{test.questionCount} questions · {test.totalMarks} marks</p>
                             </div>
-                            <Link to={`/notebooks/${test.notebookId}`} className="ledger-tag blue" style={{ flexShrink: 0 }}>
-                                {test.notebookTitle}
-                            </Link>
-                            <span className="ledger-meta">{test.createdAt}</span>
+                            {/* notebookId is populated by the backend: { _id, title } */}
+                            {test.notebookId && (
+                                <Link to={`/notebooks/${test.notebookId._id}`} className="ledger-tag blue" style={{ flexShrink: 0 }}>
+                                    {test.notebookId.title}
+                                </Link>
+                            )}
+                            <span className="ledger-meta">{formatDate(test.createdAt)}</span>
                         </div>
                     ))}
-                    {allTests.length === 0 && (
+                    {!loading && tests.length === 0 && (
                         <div className="ledger-row">
                             <p style={{ color: 'var(--text-muted)' }}>No tests generated yet.</p>
+                        </div>
+                    )}
+                    {loading && (
+                        <div className="ledger-row">
+                            <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
                         </div>
                     )}
                 </div>

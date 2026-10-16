@@ -22,20 +22,19 @@ def root():
 
 
 class GenerateTestRequest(BaseModel):
-    notebook_id: str = Field(
-        ..., description="Notebook to fetch chunks from", examples=["0001"]
-    )
-    query: str = Field(
-        ...,
-        description="What kind of test to generate",
-        examples=["20 mark test on eigenvalues"],
-    )
-
+    notebook_id: str
+    query: str
+    num_questions: int = Field(10, ge=1, le=50)
+    difficulty: str = Field("Moderate", pattern="^(Easy|Moderate|Challenging|Mixed)$")
+    duration_minutes: int | None = Field(None, ge=5, le=180)
 
 @app.post("/generate-test")
 def generate_test_endpoint(body: GenerateTestRequest):
     try:
-        return generate_test_for_request(body.query, body.notebook_id)
+        return generate_test_for_request(
+            body.query, body.notebook_id,
+            body.num_questions, body.difficulty, body.duration_minutes,
+        )
     except ValueError as e:
         raise HTTPException(404, str(e))
 

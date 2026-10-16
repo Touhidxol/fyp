@@ -42,7 +42,10 @@ export const upload = async (req, res) => {
         });
 
         // 202 Accepted: the file is saved, indexing continues in the background
-        res.status(202).json({ success: true, document });
+        res.status(202).json({
+            success: true,
+            document: { ...document, path: undefined }
+        });
 
         // Deliberately not awaited
         processDocument({

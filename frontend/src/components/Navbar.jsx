@@ -1,10 +1,11 @@
 import React from 'react'
 import { useLocation } from 'react-router-dom'
+import { useAuth } from '../context/useAuth'
 
 const titles = {
     '/': ['Dashboard', 'A look at where things stand today'],
     '/dashboard': ['Dashboard', 'A look at where things stand today'],
-    '/notebook': ['Notebooks', 'Rooms for your documents, chats, and tests'],
+    '/notebooks': ['Notebooks', 'Rooms for your documents, chats, and tests'],
     '/create-test': ['Create Test', 'Set the shape of your next test'],
     '/tests': ['Tests', 'Every test generated across your notebooks'],
     '/exam': ['Exam', 'Stay focused — you can do this'],
@@ -17,11 +18,21 @@ const today = new Date().toLocaleDateString(undefined, {
     day: 'numeric',
 })
 
+const initials = (name = '') =>
+    name
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase())
+        .join('') || '?'
+
 const Navbar = () => {
     const location = useLocation()
-    const isNotebookDetail = location.pathname.startsWith('/notebook/')
-    const [title, subtitle] = titles[location.pathname] ||
-        (isNotebookDetail ? ['Notebook', 'Documents, chat, and generated tests'] : ['Aptura', ''])
+    const { user, logout } = useAuth()
+
+    const isNotebookDetail = location.pathname.startsWith('/notebooks/')
+    const [title] = titles[location.pathname] ||
+        (isNotebookDetail ? ['Notebook', ''] : ['Aptura', ''])
 
     return (
         <header className="topbar">
@@ -39,12 +50,8 @@ const Navbar = () => {
                     <input type="text" placeholder="Search notes, tests…" />
                 </label>
 
-                <div className="streak-badge">
-                    <span>🔥</span>
-                    <span className="num">12</span> day streak
-                </div>
-
-                <div className="avatar">RA</div>
+                <div className="avatar" title={user?.email}>{initials(user?.name)}</div>
+                <button className="btn btn-secondary btn-sm" onClick={logout}>Log out</button>
             </div>
         </header>
     )
