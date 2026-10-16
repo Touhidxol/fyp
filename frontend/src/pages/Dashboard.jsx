@@ -1,20 +1,60 @@
-import React from 'react'
-
-const stats = [
-    { label: 'Tests created', value: '24', delta: '+3 this week' },
-    { label: 'Avg. score', value: '82%', delta: '+4 pts' },
-    { label: 'Questions practiced', value: '1,206', delta: '+140 this week' },
-    { label: 'Study streak', value: '12 days', delta: 'Best: 19 days', down: true },
-]
-
-const activity = [
-    { tag: 'Exam', tone: 'blue', title: 'Organic Chemistry — Ch. 6–8', meta: 'Score 88%', time: 'Today, 9:12 AM' },
-    { tag: 'Note', title: 'Krebs cycle — quick recap', meta: '3 paragraphs', time: 'Yesterday' },
-    { tag: 'Test', tone: 'blue', title: 'Linear Algebra practice set', meta: '20 questions', time: '2 days ago' },
-    { tag: 'Note', title: 'Essay outline: Cold War causes', meta: '5 paragraphs', time: '3 days ago' },
-]
+import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { listNotebooks } from '../api/notebooks'
+import { listTests } from '../api/tests'
+import { formatDate } from '../utils/format'
+import EmptyState from '../components/EmptyState'
 
 const Dashboard = () => {
+    const [notebooks, setNotebooks] = useState([])
+    const [tests, setTests] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState('')
+
+    useEffect(() => {
+        Promise.all([listNotebooks(), listTests()])
+            .then(([nbs, ts]) => {
+                setNotebooks(nbs)
+                setTests(ts)
+            })
+            .catch((err) => setError(err.message))
+            .finally(() => setLoading(false))
+    }, [])
+
+    const documents = notebooks.flatMap((nb) =>
+        nb.documents.map((d) => ({ ...d, notebookTitle: nb.title }))
+    )
+
+    const stats = [
+        { label: 'Notebooks', value: notebooks.length },
+        { label: 'Documents ready', value: documents.filter((d) => d.status === 'ready').length },
+        { label: 'Tests created', value: tests.length },
+        { label: 'Questions generated', value: tests.reduce((sum, t) => sum + (t.questionCount || 0), 0) },
+    ]
+
+    // Uploads and generated tests merged into one feed, newest first
+    const activity = [
+        ...tests.map((t) => ({
+            key: `t-${t._id}`,
+            tag: 'Test',
+            tone: 'blue',
+            title: t.title,
+            meta: `${t.questionCount} questions${t.notebookId ? ` · ${t.notebookId.title}` : ''}`,
+            date: t.createdAt,
+        })),
+        ...documents.map((d) => ({
+            key: `d-${d._id}`,
+            tag: 'Document',
+            title: d.name,
+            meta: `${d.notebookTitle} · ${d.status}`,
+            date: d.createdAt,
+        })),
+    ]
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 6)
+
+    const latestTest = tests[0] // the backend returns newest first
+
     return (
         <main className="container">
             <section className="page">
@@ -23,55 +63,92 @@ const Dashboard = () => {
                         <h1>Academic Intelligence Platform</h1>
                         <p>Generate, practice, and analyze exams with AI.</p>
                     </div>
-                    <a href="/create-test" className="btn btn-primary">
+                    <Link to="/create-test" className="btn btn-primary">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M12 5v14M5 12h14" />
                         </svg>
                         New test
-                    </a>
+                    </Link>
                 </div>
 
-                <div className="stat-row" style={{ marginBottom: 20 }}>
-                    {stats.map((s) => (
-                        <div className="stat" key={s.label}>
-                            <div className="stat-label">{s.label}</div>
-                            <div className="stat-value accent num">{s.value}</div>
-                            <div className={'stat-delta' + (s.down ? ' down' : '')}>{s.delta}</div>
+                {error && <div className="form-error" style={{ marginBottom: 16 }}>{error}</div>}
+
+                {loading ? (
+                    <p>Loading…</p>
+                ) : notebooks.length === 0 ? (
+                    <EmptyState
+                        title="Welcome to PrepZeno"
+                        text="Create a notebook, upload a PDF, and generate your first practice test."
+                        actionTo="/notebooks"
+                        actionLabel="Create your first notebook"
+                    />
+                ) : (
+                    <>
+                        <div className="stat-row" style={{ marginBottom: 20 }}>
+                            {stats.map((s) => (
+                                <div className="stat" key={s.label}>
+                                    <div className="stat-label">{s.label}</div>
+                                    <div className="stat-value accent num">{s.value}</div>
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
 
-                <div className="grid grid-2">
-                    <div className="card">
-                        <h3 style={{ marginBottom: 6 }}>Pick up where you left off</h3>
-                        <p style={{ marginBottom: 18 }}>
-                            Your last attempt on Organic Chemistry, Ch. 6–8 left three questions unreviewed.
-                        </p>
-                        <a href="/results" className="btn btn-secondary">Review answers</a>
-                    </div>
-
-                    <div className="card">
-                        <h3 style={{ marginBottom: 6 }}>Build something new</h3>
-                        <p style={{ marginBottom: 18 }}>
-                            Turn a topic, a set of notes, or a syllabus into a graded practice test in minutes.
-                        </p>
-                        <a href="/create-test" className="btn btn-secondary">Create a test</a>
-                    </div>
-                </div>
-
-                <h3 style={{ margin: '28px 0 14px' }}>Recent activity</h3>
-                <div className="ledger">
-                    {activity.map((item, i) => (
-                        <div className="ledger-row" key={i}>
-                            <span className={'ledger-tag' + (item.tone ? ' ' + item.tone : '')}>{item.tag}</span>
-                            <div className="ledger-body">
-                                <h4>{item.title}</h4>
-                                <p>{item.meta}</p>
+                        <div className="grid grid-2">
+                            <div className="card">
+                                {latestTest ? (
+                                    <>
+                                        <h3 style={{ marginBottom: 6 }}>Latest test</h3>
+                                        <p style={{ marginBottom: 18 }}>
+                                            {latestTest.title} · {latestTest.questionCount} questions
+                                        </p>
+                                        {latestTest.notebookId && (
+                                            <Link to={`/notebooks/${latestTest.notebookId._id}`} className="btn btn-secondary">
+                                                Open notebook
+                                            </Link>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        <h3 style={{ marginBottom: 6 }}>No tests yet</h3>
+                                        <p style={{ marginBottom: 18 }}>
+                                            Upload a PDF to a notebook and generate your first test.
+                                        </p>
+                                        <Link to="/notebooks" className="btn btn-secondary">Go to notebooks</Link>
+                                    </>
+                                )}
                             </div>
-                            <span className="ledger-meta">{item.time}</span>
+
+                            <div className="card">
+                                <h3 style={{ marginBottom: 6 }}>Build something new</h3>
+                                <p style={{ marginBottom: 18 }}>
+                                    Turn a notebook's documents into a practice test in minutes.
+                                </p>
+                                <Link to="/create-test" className="btn btn-secondary">Create a test</Link>
+                            </div>
                         </div>
-                    ))}
-                </div>
+
+                        <h3 style={{ margin: '28px 0 14px' }}>Recent activity</h3>
+                        <div className="ledger">
+                            {activity.map((item) => (
+                                <div className="ledger-row" key={item.key}>
+                                    <span className={'ledger-tag' + (item.tone ? ' ' + item.tone : '')}>{item.tag}</span>
+                                    <div className="ledger-body">
+                                        <h4>{item.title}</h4>
+                                        <p>{item.meta}</p>
+                                    </div>
+                                    <span className="ledger-meta">{formatDate(item.date)}</span>
+                                </div>
+                            ))}
+                            {activity.length === 0 && (
+                                <div className="ledger-row">
+                                    <p style={{ color: 'var(--text-muted)' }}>
+                                        Nothing yet. Upload a document to get started.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
             </section>
         </main>
     )

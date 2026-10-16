@@ -1,27 +1,29 @@
 import mongoose from "mongoose";
 
-const documentSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true
+const documentSchema = new mongoose.Schema(
+    {
+        name: { type: String, required: true },
+        path: { type: String, required: true },
+        summary: { type: String, default: "" },
+        pages: { type: Number, default: 0 },
+        chunks: { type: Number, default: 0 },
+        error: { type: String, default: "" },
+        status: {
+            type: String,
+            enum: ["uploaded", "processing", "ready", "failed"],
+            default: "uploaded"
+        }
     },
-
-    path: {
-        type: String,
-        required: true
-    },
-
-    summary: {
-        type: String,
-        default: ""
-    },
-
-    status: {
-        type: String,
-        enum: ["uploaded", "processing", "ready", "failed"],
-        default: "uploaded"
+    {
+        timestamps: true,
+        toJSON: {
+            transform: (doc, ret) => {
+                delete ret.path; // hide server filesystem paths
+                return ret;
+            }
+        }
     }
-});
+);
 
 const notebookSchema = new mongoose.Schema(
     {
