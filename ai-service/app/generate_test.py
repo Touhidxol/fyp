@@ -30,7 +30,7 @@ embedding_model = GoogleGenerativeAIEmbeddings(
 vector_db = QdrantVectorStore.from_existing_collection(
     collection_name="learning_platform",
     embedding=embedding_model,
-    url="http://localhost:6333",
+    url=os.getenv("QDRANT_URL", "http://localhost:6333"),
 )
 
 
@@ -189,31 +189,26 @@ def generate_test(user_query, context, num_questions, difficulty, duration_minut
         else "Choose a reasonable duration."
     )
     prompt = f"""
-        ...existing prompt...
+        You are an expert exam setter. Create a test using ONLY the study
+        material below. Do not use outside knowledge.
+
+        User request:
+        {user_query}
+
+        Study material:
+        {context}
 
         Hard constraints (these override the user request if they conflict):
         - Generate EXACTLY {num_questions} questions in total.
-        - Overall difficulty: {difficulty}. If "Mixed", spread Easy/Medium/Hard.
+        - Overall difficulty: {difficulty}. If "Mixed", spread Easy/Moderate/Challenging.
         - {duration_line}
         - Use "mcq" for factual/conceptual questions (exactly 4 options, the
           answer must be identical to one option) and "short_answer" for
           explain/derive/compare questions (options must be empty).
         - Add a one-sentence explanation for every answer.
+        - Group questions into sensible sections, give every question marks,
+          and make total_marks the sum of all question marks.
     """
-
-    response = client.interactions.create(
-        model="gemini-3.5-flash-lite",
-        input=prompt,
-        response_format=[
-            {
-                "type": "text",
-                "mime_type": "application/json",
-                "schema": GeneratedTest.model_json_schema(),
-            }
-        ],
-    )
-
-    return GeneratedTest.model_validate_json(response.output_text)
 
 
 # --------------------------------------------------
@@ -221,7 +216,13 @@ def generate_test(user_query, context, num_questions, difficulty, duration_minut
 # --------------------------------------------------
 
 
-def generate_test_for_request(user_query: str, notebook_id: str) -> dict:
+def generate_test_for_request(
+    user_query: str,
+    notebook_id: str,
+    num_questions: int = 10,
+    difficulty: str = "Moderate",
+    duration_minutes: int | None = None,
+) -> dict:
     classification = classify_request(user_query)
     docs = retrieve_context(classification, notebook_id)
 
@@ -229,8 +230,10 @@ def generate_test_for_request(user_query: str, notebook_id: str) -> dict:
         raise ValueError(f"No content found for notebook '{notebook_id}'")
 
     context = build_context(docs)
-    test = generate_test(user_query, context)
-    return test.model_dump()  # plain dict, FastAPI turns it into JSON
+    test = generate_test(
+        user_query, context, num_questions, difficulty, duration_minutes
+    )
+    return test.model_dump()
 
 
 # --------------------------------------------------

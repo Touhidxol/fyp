@@ -1,14 +1,19 @@
 import axios from "axios";
 import fs from "fs";
 
-export const generateTestFromAI = async ({ notebookId, query }) => {
+export const generateTestFromAI = async ({ notebookId, query, numQuestions, difficulty, duration }) => {
     const baseURL = process.env.AI_SERVICE_URL || "http://localhost:8000";
 
     try {
-        const { data } = await axios.post(
-            `${baseURL}/generate-test`,
-            { notebook_id: notebookId, query },
-            { timeout: 120000 } // Gemini can take a while
+        const { data } = await axios.post(`${baseURL}/generate-test`,
+            {
+                notebook_id: notebookId,
+                query,
+                num_questions: numQuestions,
+                difficulty,
+                duration_minutes: duration ?? null
+            },
+            { timeout: 120000 }
         );
         return data;
     } catch (err) {

@@ -32,7 +32,7 @@ const Navbar = () => {
 
     const isNotebookDetail = location.pathname.startsWith('/notebooks/')
     const [title] = titles[location.pathname] ||
-        (isNotebookDetail ? ['Notebook', ''] : ['Aptura', ''])
+        (isNotebookDetail ? ['Notebook', ''] : ['Prepzeno', ''])
 
     return (
         <header className="topbar">

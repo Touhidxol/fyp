@@ -9,10 +9,12 @@ const mapGeneratedTest = (g) => {
         marks: s.questions.reduce((sum, q) => sum + q.marks, 0),
         questions: s.questions.map((q) => ({
             question: q.question,
-            type: "short_answer",
+            type: q.type ?? "short_answer",
             marks: q.marks,
             difficulty: q.difficulty,
-            correctAnswer: q.answer
+            options: q.options ?? [],
+            correctAnswer: q.answer,
+            explanation: q.explanation ?? ""
         }))
     }));
 
@@ -29,8 +31,10 @@ const mapGeneratedTest = (g) => {
     };
 };
 
-export const createTestForNotebook = async ({ userId, notebookId, query }) => {
-    const generated = await generateTestFromAI({ notebookId, query });
+export const createTestForNotebook = async ({ userId, notebookId, query, numQuestions, difficulty, duration }) => {
+    const generated = await generateTestFromAI({
+        notebookId, query, numQuestions, difficulty, duration
+    });
 
     return await Test.create({
         userId,

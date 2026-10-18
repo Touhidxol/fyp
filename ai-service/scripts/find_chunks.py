@@ -7,7 +7,6 @@ from langchain_qdrant import QdrantVectorStore
 
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 
-
 load_dotenv()
 
 
@@ -16,8 +15,7 @@ load_dotenv()
 # --------------------------------------------------
 
 embedding_model = GoogleGenerativeAIEmbeddings(
-    model="gemini-embedding-2-preview",
-    google_api_key=os.getenv("GEMINI_API_KEY")
+    model="gemini-embedding-2-preview", google_api_key=os.getenv("GEMINI_API_KEY")
 )
 
 
@@ -28,7 +26,7 @@ embedding_model = GoogleGenerativeAIEmbeddings(
 vector_db = QdrantVectorStore.from_existing_collection(
     collection_name="learning_platform",
     embedding=embedding_model,
-    url="http://localhost:6333"
+    url=os.getenv("QDRANT_URL", "http://localhost:6333"),
 )
 
 
@@ -43,9 +41,7 @@ qdrant_client = vector_db.client
 # 5. Document ID to search
 # --------------------------------------------------
 
-document_id = input(
-    "Enter document_id: "
-).strip()
+document_id = input("Enter document_id: ").strip()
 
 
 # --------------------------------------------------
@@ -54,23 +50,16 @@ document_id = input(
 
 results, next_offset = qdrant_client.scroll(
     collection_name="learning_platform",
-
     scroll_filter=Filter(
         must=[
             FieldCondition(
-                key="metadata.document_id",
-                match=MatchValue(
-                    value=document_id
-                )
+                key="metadata.document_id", match=MatchValue(value=document_id)
             )
         ]
     ),
-
     limit=100,
-
     with_payload=True,
-
-    with_vectors=False
+    with_vectors=False,
 )
 
 
@@ -104,10 +93,7 @@ pages = []
 
 for point in results:
 
-    metadata = point.payload.get(
-        "metadata",
-        {}
-    )
+    metadata = point.payload.get("metadata", {})
 
     page = metadata.get("page")
 
@@ -134,4 +120,3 @@ else:
 print("\n========================================")
 print("DONE")
 print("========================================")
-

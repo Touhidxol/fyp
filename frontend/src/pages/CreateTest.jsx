@@ -47,7 +47,6 @@ const CreateTest = () => {
         const d = clamp(duration, 5, 180)
 
         const query = [
-            `Create a ${q}-question ${difficulty.toLowerCase()} difficulty test that should take ${d} minutes.`,
             name.trim() ? `Title it "${name.trim()}".` : '',
             topic.trim() ? `Focus on: ${topic.trim()}.` : 'Cover the whole uploaded material.',
         ]
@@ -57,7 +56,12 @@ const CreateTest = () => {
         setBusy(true)
         setError('')
         try {
-            await generateTest(notebookId, { query })
+            await generateTest(notebookId, {
+                query,
+                numQuestions: q,
+                difficulty,
+                duration: d,
+            })
             navigate(`/notebooks/${notebookId}`)
         } catch (err) {
             setError(err.message)
