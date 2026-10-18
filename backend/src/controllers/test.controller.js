@@ -39,7 +39,7 @@ export const generateForNotebook = async (req, res) => {
         const test = await createTestForNotebook({
             userId: req.user.id,
             notebookId: notebook._id,
-            query: parsed.data.query
+            ...parsed.data   // query, numQuestions, difficulty, duration
         });
 
         res.status(201).json({ success: true, test });
