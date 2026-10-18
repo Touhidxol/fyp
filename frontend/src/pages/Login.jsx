@@ -32,7 +32,7 @@ const Login = () => {
         <div className="auth-page">
             <div className="card auth-card">
                 <h1>Welcome back</h1>
-                <p>Log in to continue to Aptura.</p>
+                <p>Log in to continue to PrepZeno.</p>
 
                 <form className="auth-form" onSubmit={submit}>
                     {error && <div className="form-error">{error}</div>}
