@@ -95,3 +95,20 @@ export const deleteNotebookFromAI = async (notebookId) => {
     }
     if (!res.ok) throw await aiError(res);
 };
+
+export const gradeAnswersFromAI = async (items) => {
+    let res;
+    try {
+        res = await fetch(`${aiBaseURL()}/grade`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ items }),
+            signal: AbortSignal.timeout(90 * 1000)
+        });
+    } catch {
+        throw unreachable();
+    }
+    if (!res.ok) throw await aiError(res);
+    const data = await res.json();
+    return data.results; // [{ id, marks_awarded, feedback }]
+};

@@ -1,5 +1,6 @@
 import Test from "../models/Test.js";
 import { generateTestFromAI } from "./ai.service.js";
+import Attempt from "../models/Attempt.js";
 
 // AI output (snake_case) → our Test document
 const mapGeneratedTest = (g) => {
@@ -60,5 +61,8 @@ export const getUserTests = async (userId) =>
 export const getTestById = async (testId, userId) =>
     await Test.findOne({ _id: testId, userId });
 
-export const deleteTest = async (testId, userId) =>
-    await Test.findOneAndDelete({ _id: testId, userId });
+export const deleteTest = async (testId, userId) => {
+    const test = await Test.findOneAndDelete({ _id: testId, userId });
+    if (test) await Attempt.deleteMany({ testId, userId });
+    return test;
+};

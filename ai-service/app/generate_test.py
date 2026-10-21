@@ -9,6 +9,14 @@ from typing import Literal
 
 load_dotenv()
 
+class NoContentError(ValueError):
+    """The notebook has no indexed content to build a test from."""
+
+
+class InvalidGenerationError(ValueError):
+    """The model returned a test that breaks our rules."""
+
+
 # --------------------------------------------------
 # 1. Gemini Client
 # --------------------------------------------------
@@ -146,19 +154,19 @@ def build_context(docs):
 
 
 # --------------------------------------------------
-# 8. Test Response Schema
+# 8. Test Response Schema (MCQ only)
 # --------------------------------------------------
 
 
 class Question(BaseModel):
     question_number: int
     question: str
-    type: Literal["mcq", "short_answer"]
-    options: list[str] = []  # 4 options for mcq, empty otherwise
+    type: Literal["mcq"]
+    options: list[str]  # 2 to 6 options (True/False questions have exactly 2)
     marks: int
     difficulty: str
-    answer: str  # for mcq: must exactly match one option
-    explanation: str | None = None
+    answer: str  # must exactly match one option
+    explanation: str
 
 
 class Section(BaseModel):
@@ -181,6 +189,38 @@ class GeneratedTest(BaseModel):
 # 9. Generate Test
 # --------------------------------------------------
 
+GENERATION_MODEL = os.getenv("GENERATION_MODEL", "gemini-3.5-flash-lite")
+
+MIN_OPTIONS = 2
+MAX_OPTIONS = 6
+
+
+def validate_questions(test: GeneratedTest) -> GeneratedTest:
+    """Backend grading is a plain string comparison, so the answer must be
+    identical to one of the options. Fix casing/spacing, reject the rest."""
+    for section in test.sections:
+        for q in section.questions:
+            n = len(q.options)
+            if not (MIN_OPTIONS <= n <= MAX_OPTIONS):
+                raise InvalidGenerationError(
+                    f"Question {q.question_number} has {n} options; "
+                    f"expected {MIN_OPTIONS} to {MAX_OPTIONS}."
+                )
+
+            lowered = [o.strip().lower() for o in q.options]
+            if len(set(lowered)) != n:
+                raise InvalidGenerationError(
+                    f"Question {q.question_number} has duplicate options."
+                )
+
+            target = q.answer.strip().lower()
+            match = next((o for o in q.options if o.strip().lower() == target), None)
+            if match is None:
+                raise InvalidGenerationError(
+                    f"Question {q.question_number}: the answer is not one of the options."
+                )
+            q.answer = match  # exact option text
+    return test
 
 def generate_test(user_query, context, num_questions, difficulty, duration_minutes):
     duration_line = (
@@ -189,8 +229,8 @@ def generate_test(user_query, context, num_questions, difficulty, duration_minut
         else "Choose a reasonable duration."
     )
     prompt = f"""
-        You are an expert exam setter. Create a test using ONLY the study
-        material below. Do not use outside knowledge.
+        You are an expert exam setter. Create a multiple-choice test using
+        ONLY the study material below. Do not use outside knowledge.
 
         User request:
         {user_query}
@@ -200,15 +240,37 @@ def generate_test(user_query, context, num_questions, difficulty, duration_minut
 
         Hard constraints (these override the user request if they conflict):
         - Generate EXACTLY {num_questions} questions in total.
+        - EVERY question must be type "mcq". Never write short-answer questions,
+          even if the user request asks for them.
+        - Each question has exactly 4 options, and exactly one is correct.
+        - Each question has between 2 and 6 options, and exactly one is correct.
+        - Use 4 options for most questions. Use exactly 2 options ["True", "False"]
+          for true/false statements. Use 5 or 6 only when the material naturally
+          has that many distinct choices.
+        - Options within a question must all be different from each other.
+        - The "answer" field must be copied character-for-character from one
+          of the options.
+        - Do NOT put labels like "A)", "B)" or "1." in the options.
         - Overall difficulty: {difficulty}. If "Mixed", spread Easy/Moderate/Challenging.
         - {duration_line}
-        - Use "mcq" for factual/conceptual questions (exactly 4 options, the
-          answer must be identical to one option) and "short_answer" for
-          explain/derive/compare questions (options must be empty).
         - Add a one-sentence explanation for every answer.
-        - Group questions into sensible sections, give every question marks,
-          and make total_marks the sum of all question marks.
+        - Group questions into sensible sections.
     """
+
+    interaction = client.interactions.create(
+        model=GENERATION_MODEL,
+        input=prompt,
+        response_format=[
+            {
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": GeneratedTest.model_json_schema(),
+            }
+        ],
+    )
+
+    test = GeneratedTest.model_validate_json(interaction.output_text)
+    return validate_questions(test)
 
 
 # --------------------------------------------------
@@ -227,7 +289,7 @@ def generate_test_for_request(
     docs = retrieve_context(classification, notebook_id)
 
     if not docs:
-        raise ValueError(f"No content found for notebook '{notebook_id}'")
+        raise NoContentError(f"No content found for notebook '{notebook_id}'")
 
     context = build_context(docs)
     test = generate_test(
@@ -260,7 +322,7 @@ if __name__ == "__main__":
     context = build_context(docs)
 
     # STEP 5:
-    test = generate_test(user_query, context)
+    test = generate_test(user_query, context, 10, "Moderate", 30)
 
     print("\n========== GENERATED TEST ==========\n")
 
