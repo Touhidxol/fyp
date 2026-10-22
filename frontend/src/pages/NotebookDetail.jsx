@@ -219,10 +219,11 @@ const NotebookDetail = () => {
                                 <div className="ledger-row" key={test._id}>
                                     <StatusPill status="ready" />
                                     <div className="ledger-body">
-                                        <h4>{test.title}</h4>
+                                        <h4><Link to={`/tests/${test._id}`}>{test.title}</Link></h4>
                                         <p>{test.questionCount} questions · {test.totalMarks} marks</p>
                                     </div>
                                     <span className="ledger-meta">{formatDate(test.createdAt)}</span>
+                                    <Link to={`/tests/${test._id}`} className="btn btn-secondary btn-sm">Open</Link>
                                 </div>
                             ))}
                             {tests.length === 0 && (

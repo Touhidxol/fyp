@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listNotebooks } from '../api/notebooks'
 import { listTests } from '../api/tests'
+import { listAttempts } from '../api/attempts'
 import { formatDate } from '../utils/format'
 import EmptyState from '../components/EmptyState'
 
@@ -10,12 +11,14 @@ const Dashboard = () => {
     const [tests, setTests] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
+    const [attempts, setAttempts] = useState([])
 
     useEffect(() => {
-        Promise.all([listNotebooks(), listTests()])
-            .then(([nbs, ts]) => {
+        Promise.all([listNotebooks(), listTests(), listAttempts()])
+            .then(([nbs, ts, ats]) => {
                 setNotebooks(nbs)
                 setTests(ts)
+                setAttempts(ats)
             })
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false))
@@ -25,11 +28,17 @@ const Dashboard = () => {
         nb.documents.map((d) => ({ ...d, notebookTitle: nb.title }))
     )
 
+
+    const submitted = attempts.filter((a) => a.status === 'submitted')
+    const avg = submitted.length
+        ? Math.round((submitted.reduce((s, a) => s + a.percentage, 0) / submitted.length) * 10) / 10
+        : 0
+
     const stats = [
-        { label: 'Notebooks', value: notebooks.length },
-        { label: 'Documents ready', value: documents.filter((d) => d.status === 'ready').length },
         { label: 'Tests created', value: tests.length },
-        { label: 'Questions generated', value: tests.reduce((sum, t) => sum + (t.questionCount || 0), 0) },
+        { label: 'Exams taken', value: submitted.length },
+        { label: 'Average score', value: `${avg}%` },
+        { label: 'Best score', value: `${submitted.length ? Math.max(...submitted.map((a) => a.percentage)) : 0}%` },
     ]
 
     // Uploads and generated tests merged into one feed, newest first
@@ -48,6 +57,14 @@ const Dashboard = () => {
             title: d.name,
             meta: `${d.notebookTitle} · ${d.status}`,
             date: d.createdAt,
+        })),
+        ...submitted.map((a) => ({
+            key: `a-${a._id}`,
+            tag: 'Exam',
+            tone: 'blue',
+            title: a.testId?.title || 'Deleted test',
+            meta: `${a.score}/${a.totalMarks} marks · ${a.percentage}%`,
+            date: a.submittedAt,
         })),
     ]
         .sort((a, b) => new Date(b.date) - new Date(a.date))

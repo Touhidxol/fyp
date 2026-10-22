@@ -15,6 +15,9 @@ import CreateTest from './pages/CreateTest'
 import Tests from './pages/Tests'
 import Exam from './pages/Exam'
 import Results from './pages/Results'
+import TestView from './pages/TestView'
+import ExamRunner from './pages/ExamRunner'
+import ResultDetail from './pages/ResultDetail'
 
 const App = () => {
   return (
@@ -34,6 +37,12 @@ const App = () => {
             <Route path="/tests" element={<Tests />} />
             <Route path="/exam" element={<Exam />} />
             <Route path="/results" element={<Results />} />
+            <Route path="/tests" element={<Tests />} />
+            <Route path="/tests/:id" element={<TestView />} />
+            <Route path="/exam" element={<Exam />} />
+            <Route path="/exam/:attemptId" element={<ExamRunner />} />
+            <Route path="/results" element={<Results />} />
+            <Route path="/results/:attemptId" element={<ResultDetail />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

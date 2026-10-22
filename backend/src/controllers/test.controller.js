@@ -9,6 +9,8 @@ import {
     deleteTest
 } from "../services/test.service.js";
 
+import { toExamTest } from "../services/attempt.service.js";
+
 const generateSchema = z.object({
     query: z.string().trim().min(3, "Describe the test you want"),
     numQuestions: z.number().int().min(1).max(50).default(10),
@@ -78,7 +80,7 @@ export const getOne = async (req, res) => {
     try {
         const test = await getTestById(req.params.id, req.user.id);
         if (!test) return notFound(res, "Test");
-        res.json({ success: true, test });
+        res.json({ success: true, test: toExamTest(test) });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

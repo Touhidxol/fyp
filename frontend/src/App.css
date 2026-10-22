@@ -900,7 +900,7 @@
   margin-bottom: 6px;
 }
 
-.auth-card > p {
+.auth-card>p {
   margin-bottom: 24px;
 }
 
@@ -1017,4 +1017,233 @@
 
 .sidebar-footer {
   word-break: break-all;
+}
+
+/* ===== Test viewer / exam / results ===== */
+
+.q-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.q-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.q-num {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.q-text {
+  color: var(--text-heading);
+  font-weight: 500;
+  margin-bottom: 16px;
+  white-space: pre-wrap;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  transition: 0.15s ease;
+}
+
+button.option:hover {
+  border-color: var(--border-strong);
+}
+
+.option-letter {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.option-text {
+  padding-top: 2px;
+}
+
+.option.selected {
+  border-color: var(--primary);
+  background: #e7edf9;
+  color: var(--primary-hover);
+}
+
+.option.selected .option-letter {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.option.correct {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.option.correct .option-letter {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
+
+.option.wrong {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.option.wrong .option-letter {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.answer-box textarea {
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-size: 14px;
+  color: var(--text-heading);
+  background: var(--surface);
+}
+
+.answer-box textarea:focus {
+  border-color: var(--primary);
+}
+
+.answer-block {
+  margin-bottom: 12px;
+}
+
+.answer-block .label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.answer-block p {
+  white-space: pre-wrap;
+  color: var(--text-heading);
+}
+
+.explain {
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.exam-layout {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 20px;
+  align-items: start;
+}
+
+.exam-side {
+  position: sticky;
+  top: 88px;
+}
+
+.timer {
+  font-family: var(--mono);
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.timer.low {
+  color: var(--danger);
+}
+
+.nav-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.nav-btn {
+  padding: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.nav-btn.answered {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.nav-btn.current {
+  outline: 2px solid var(--highlight);
+  outline-offset: 1px;
+}
+
+.score-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.score-big {
+  font-size: 2.25rem;
+  font-weight: 600;
+  color: var(--primary);
+  text-align: right;
+}
+
+.score-big span {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+}
+
+.score-pct {
+  font-size: 1rem;
+  color: var(--text);
+}
+
+@media (max-width: 1024px) {
+  .exam-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .exam-side {
+    position: static;
+    order: -1;
+  }
 }
