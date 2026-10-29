@@ -1,10 +1,11 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { auth } from "./middleware/auth.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
 import notebookRoutes from "./routes/notebook.routes.js";
 import testRoutes from "./routes/test.routes.js";
-import { auth } from "./middleware/auth.middleware.js";
+import attemptRoutes from "./routes/attempt.routes.js";
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/notebooks", auth, notebookRoutes);
 app.use("/api/tests", auth, testRoutes);
+app.use("/api/attempts", auth, attemptRoutes);
 
 app.get("/api/health", (req, res) => {
     res.json({
