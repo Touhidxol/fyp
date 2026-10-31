@@ -1,14 +1,41 @@
 import mongoose from "mongoose";
 
+// Result of running a coding answer. Counts and statuses only, never test data.
+const judgeSchema = new mongoose.Schema(
+    {
+        // accepted | partial | wrong_answer | runtime_error | compilation_error | unavailable
+        verdict: { type: String, default: "" },
+        passed: { type: Number, default: 0 },
+        total: { type: Number, default: 0 },
+        // compiler / runtime message. Truncate in the service before saving.
+        message: { type: String, default: "" },
+        tests: {
+            type: [
+                new mongoose.Schema(
+                    {
+                        sample: { type: Boolean, default: false },
+                        status: { type: String, default: "" }
+                    },
+                    { _id: false }
+                )
+            ],
+            default: []
+        }
+    },
+    { _id: false }
+);
+
 const answerSchema = new mongoose.Schema(
     {
         sectionIndex: { type: Number, required: true },
         questionIndex: { type: Number, required: true },
-        answer: { type: String, default: "" },
+        answer: { type: String, default: "" }, // option text, short answer, or source code
+        language: { type: String, default: "" }, // coding answers only
         isCorrect: { type: Boolean, default: null },
         marksAwarded: { type: Number, default: 0 },
         feedback: { type: String, default: "" },
-        gradedBy: { type: String, enum: ["auto", "ai", "none"], default: "none" }
+        gradedBy: { type: String, enum: ["auto", "ai", "judge", "none"], default: "none" },
+        judge: { type: judgeSchema, default: undefined }
     },
     { _id: false }
 );

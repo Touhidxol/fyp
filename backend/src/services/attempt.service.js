@@ -1,6 +1,7 @@
 import Attempt from "../models/Attempt.js";
 import Test from "../models/Test.js";
 import { gradeAnswersFromAI } from "./ai.service.js";
+import { sanitizeQuestion, sanitizeQuestionForReview } from "../utils/codingSanitizer.js";
 
 const httpError = (status, message) => {
     const e = new Error(message);
@@ -16,7 +17,17 @@ export const toExamTest = (test) => {
     const obj = test.toObject();
     obj.sections = obj.sections.map((sec) => ({
         ...sec,
-        questions: sec.questions.map(({ correctAnswer, explanation, ...q }) => q)
+        questions: sec.questions.map(sanitizeQuestion)
+    }));
+    return obj;
+};
+
+// After submission: reveal MCQ answers, still hide coding tests
+export const toReviewTest = (test) => {
+    const obj = test.toObject();
+    obj.sections = obj.sections.map((sec) => ({
+        ...sec,
+        questions: sec.questions.map(sanitizeQuestionForReview)
     }));
     return obj;
 };
@@ -49,7 +60,7 @@ export const getAttemptWithTest = async (attemptId, userId) => {
     // Full test (with answers) only after submission
     return {
         attempt,
-        test: attempt.status === "submitted" ? test.toObject() : toExamTest(test)
+        test: attempt.status === "submitted" ? toReviewTest(test) : toExamTest(test)
     };
 };
 

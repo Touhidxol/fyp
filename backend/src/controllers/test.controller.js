@@ -44,7 +44,7 @@ export const generateForNotebook = async (req, res) => {
             ...parsed.data   // query, numQuestions, difficulty, duration
         });
 
-        res.status(201).json({ success: true, test });
+        res.status(201).json({ success: true, test: toExamTest(test) });
     } catch (error) {
         res.status(error.status || 500).json({
             success: false,
