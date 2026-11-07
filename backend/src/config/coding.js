@@ -22,3 +22,7 @@ export const TIME_LIMIT_SECONDS = 2;
 // safer for AI-written expected outputs. Use "trim" for stricter, Judge0-style
 // comparison.
 export const CHECKER = "tokens";
+
+// Runs per user per minute. The free plan allows ~30 runs/min for everyone,
+// and each Run executes every sample test.
+export const RUN_LIMIT_PER_MINUTE = 6;

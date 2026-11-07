@@ -1,7 +1,18 @@
 import Attempt from "../models/Attempt.js";
 import Test from "../models/Test.js";
 import { gradeAnswersFromAI } from "./ai.service.js";
-import { sanitizeQuestion, sanitizeQuestionForReview } from "../utils/codingSanitizer.js";
+import {
+    runSamples,
+    judgeSubmission,
+    toJudgeSummary,
+    CompilerError
+} from "./compiler.service.js";
+import {
+    sanitizeQuestion,
+    sanitizeQuestionForReview
+} from "../utils/codingSanitizer.js";
+import { hitLimit } from "../utils/rateLimit.js";
+import { RUN_LIMIT_PER_MINUTE } from "../config/coding.js";
 
 const httpError = (status, message) => {
     const e = new Error(message);
@@ -57,7 +68,6 @@ export const getAttemptWithTest = async (attemptId, userId) => {
     const test = await Test.findById(attempt.testId);
     if (!test) throw httpError(404, "The test for this attempt was deleted");
 
-    // Full test (with answers) only after submission
     return {
         attempt,
         test: attempt.status === "submitted" ? toReviewTest(test) : toExamTest(test)
@@ -80,6 +90,59 @@ export const saveAnswers = async (attemptId, userId, answers) => {
     return attempt;
 };
 
+// ---------- Run (sample tests only) ----------
+
+export const runCode = async (
+    attemptId,
+    userId,
+    { sectionIndex, questionIndex, language, code }
+) => {
+    const attempt = await Attempt.findOne({
+        _id: attemptId,
+        userId,
+        status: "in_progress"
+    });
+    if (!attempt) throw httpError(409, "Attempt not found or already submitted");
+
+    const test = await Test.findById(attempt.testId);
+    if (!test) throw httpError(404, "The test for this attempt was deleted");
+
+    const q = test.sections[sectionIndex]?.questions[questionIndex];
+    if (!q || q.type !== "coding" || !q.coding) {
+        throw httpError(400, "That is not a coding question");
+    }
+    if (!q.coding.allowedLanguages.includes(language)) {
+        throw httpError(400, "That language is not allowed for this question");
+    }
+
+    // Protect the shared free-plan quota from one user mashing Run
+    const wait = hitLimit(`run:${userId}`, RUN_LIMIT_PER_MINUTE, 60 * 1000);
+    if (wait > 0) {
+        throw new CompilerError(`Too many runs. Try again in ${wait}s.`, {
+            status: 429,
+            code: "rate_limited",
+            retryAfter: wait
+        });
+    }
+
+    return await runSamples({ language, code, coding: q.coding });
+};
+
+// ---------- Submit ----------
+
+const OUTAGE_CODES = ["not_configured", "misconfigured", "unreachable", "unavailable"];
+const UNJUDGED_MESSAGE =
+    "The code runner was unavailable, so this answer could not be judged.";
+
+// Saved as "none" so a runner outage never turns into a silent zero
+const markUnjudged = (r, message) => {
+    r.isCorrect = null;
+    r.marksAwarded = 0;
+    r.feedback = message;
+    r.gradedBy = "none";
+    r.judge = { verdict: "unavailable", passed: 0, total: 0, message: "", tests: [] };
+};
+
 export const submitAttempt = async (attemptId, userId, answers) => {
     const attempt = await Attempt.findOne({ _id: attemptId, userId });
     if (!attempt) throw httpError(404, "Attempt not found");
@@ -90,19 +153,25 @@ export const submitAttempt = async (attemptId, userId, answers) => {
 
     const given = new Map();
     for (const a of answers ?? attempt.answers) {
-        given.set(keyOf(a.sectionIndex, a.questionIndex), a.answer);
+        given.set(keyOf(a.sectionIndex, a.questionIndex), {
+            answer: a.answer,
+            language: a.language
+        });
     }
 
     const results = [];
     const needsAI = []; // short answers
+    const needsJudge = []; // coding answers
 
     test.sections.forEach((sec, si) => {
         sec.questions.forEach((q, qi) => {
-            const answer = String(given.get(keyOf(si, qi)) ?? "").trim();
+            const entry = given.get(keyOf(si, qi));
+            const answer = String(entry?.answer ?? "").trim();
             const r = {
                 sectionIndex: si,
                 questionIndex: qi,
                 answer,
+                language: "",
                 isCorrect: null,
                 marksAwarded: 0,
                 feedback: "",
@@ -117,6 +186,16 @@ export const submitAttempt = async (attemptId, userId, answers) => {
                 r.isCorrect = norm(answer) === norm(q.correctAnswer);
                 r.marksAwarded = r.isCorrect ? q.marks : 0;
                 r.gradedBy = "auto";
+            } else if (q.type === "coding") {
+                const language = entry?.language || q.coding?.allowedLanguages?.[0] || "";
+                r.language = language;
+                if (!q.coding || !q.coding.allowedLanguages.includes(language)) {
+                    r.isCorrect = false;
+                    r.feedback = "That language is not allowed for this question";
+                    r.gradedBy = "auto";
+                } else {
+                    needsJudge.push({ r, q });
+                }
             } else {
                 needsAI.push({ r, q });
             }
@@ -124,6 +203,43 @@ export const submitAttempt = async (attemptId, userId, answers) => {
         });
     });
 
+    // Coding: one question at a time. Each request can use all of the free
+    // plan's pending slots, so parallel judging would only cause 429s.
+    let runnerDown = false;
+    for (const { r, q } of needsJudge) {
+        if (runnerDown) {
+            markUnjudged(r, UNJUDGED_MESSAGE);
+            continue;
+        }
+
+        try {
+            const result = await judgeSubmission({
+                language: r.language,
+                code: r.answer,
+                coding: q.coding
+            });
+
+            const ratio = result.total ? result.passed / result.total : 0;
+            r.marksAwarded = Math.round(q.marks * ratio * 100) / 100;
+            r.isCorrect = result.total > 0 && result.passed === result.total;
+            r.feedback = `${result.passed}/${result.total} tests passed`;
+            r.gradedBy = "judge";
+            r.judge = toJudgeSummary(result);
+        } catch (err) {
+            console.error("Code judging failed:", err.message);
+            if (err instanceof CompilerError && OUTAGE_CODES.includes(err.code)) {
+                runnerDown = true; // skip the rest instead of waiting on each
+            }
+            const userFacing =
+                err instanceof CompilerError &&
+                    ["rejected", "bad_language"].includes(err.code)
+                    ? err.message
+                    : UNJUDGED_MESSAGE;
+            markUnjudged(r, userFacing);
+        }
+    }
+
+    // Short answers: AI grading, unchanged
     if (needsAI.length > 0) {
         try {
             const graded = await gradeAnswersFromAI(
@@ -161,7 +277,7 @@ export const submitAttempt = async (attemptId, userId, answers) => {
     const score = results.reduce((sum, r) => sum + r.marksAwarded, 0);
 
     attempt.answers = results;
-    attempt.score = score;
+    attempt.score = Math.round(score * 100) / 100;
     attempt.totalMarks = test.totalMarks;
     attempt.percentage = test.totalMarks
         ? Math.round((score / test.totalMarks) * 1000) / 10
