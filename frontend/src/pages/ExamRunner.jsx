@@ -1,15 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { getAttempt, saveAnswers, submitAttempt } from '../api/attempts'
+import { getAttempt, saveAnswers, submitAttempt, runCode } from '../api/attempts'
+import { getCodingStatus } from '../api/coding'
 import { optionLabel } from '../utils/format'
+import CodingQuestion from '../components/CodingQuestion'
 
 const keyOf = (s, q) => `${s}:${q}`
 
-const toPayload = (map) =>
-    Object.entries(map).map(([key, answer]) => {
+// answers: key -> text/code, languages: key -> language id (coding only)
+const toPayload = (answers, languages) => {
+    const keys = new Set([...Object.keys(answers), ...Object.keys(languages)])
+    return [...keys].map((key) => {
         const [sectionIndex, questionIndex] = key.split(':').map(Number)
-        return { sectionIndex, questionIndex, answer }
+        const entry = { sectionIndex, questionIndex, answer: answers[key] ?? '' }
+        if (languages[key]) entry.language = languages[key]
+        return entry
     })
+}
 
 const clock = (ms) => {
     const total = Math.max(0, Math.floor(ms / 1000))
@@ -24,6 +31,9 @@ const ExamRunner = () => {
 
     const [data, setData] = useState(null) // { attempt, test }
     const [answers, setAnswers] = useState({})
+    const [languages, setLanguages] = useState({})
+    const [runResults, setRunResults] = useState({}) // key -> latest Run result
+    const [codingAvailable, setCodingAvailable] = useState(null) // null = unknown yet
     const [current, setCurrent] = useState(0)
     const [now, setNow] = useState(() => Date.now())
     const [error, setError] = useState('')
@@ -31,6 +41,7 @@ const ExamRunner = () => {
 
     // refs hold the latest values for timers/auto-submit without re-creating callbacks
     const answersRef = useRef({})
+    const languagesRef = useRef({})
     const submittingRef = useRef(false)
     const saveTimer = useRef(null)
 
@@ -42,11 +53,16 @@ const ExamRunner = () => {
                     return
                 }
                 const initial = {}
+                const langs = {}
                 for (const a of attempt.answers) {
-                    initial[keyOf(a.sectionIndex, a.questionIndex)] = a.answer
+                    const key = keyOf(a.sectionIndex, a.questionIndex)
+                    initial[key] = a.answer
+                    if (a.language) langs[key] = a.language
                 }
                 answersRef.current = initial
+                languagesRef.current = langs
                 setAnswers(initial)
+                setLanguages(langs)
                 setData({ attempt, test })
             })
             .catch((err) => setError(err.message))
@@ -67,20 +83,52 @@ const ExamRunner = () => {
         )
     }, [data])
 
+    // only ask the server about the code runner if this exam needs it
+    const hasCoding = useMemo(() => questions.some((x) => x.q.type === 'coding'), [questions])
+    useEffect(() => {
+        if (!hasCoding) return
+        getCodingStatus()
+            .then((s) => setCodingAvailable(s.available))
+            .catch(() => setCodingAvailable(false))
+    }, [hasCoding])
+
     const minutes = data?.attempt.durationMinutes
     const deadline = minutes ? new Date(data.attempt.startedAt).getTime() + minutes * 60000 : null
     const remaining = deadline ? deadline - now : null
+
+    // debounced autosave so a refresh/crash doesn't lose work
+    const scheduleSave = () => {
+        clearTimeout(saveTimer.current)
+        saveTimer.current = setTimeout(() => {
+            saveAnswers(attemptId, toPayload(answersRef.current, languagesRef.current)).catch(() => { })
+        }, 1500)
+    }
 
     const setAnswer = (key, value) => {
         const next = { ...answersRef.current, [key]: value }
         answersRef.current = next
         setAnswers(next)
+        scheduleSave()
+    }
 
-        // debounced autosave so a refresh/crash doesn't lose work
-        clearTimeout(saveTimer.current)
-        saveTimer.current = setTimeout(() => {
-            saveAnswers(attemptId, toPayload(answersRef.current)).catch(() => { })
-        }, 1500)
+    const setLanguage = (key, language) => {
+        const next = { ...languagesRef.current, [key]: language }
+        languagesRef.current = next
+        setLanguages(next)
+        scheduleSave()
+    }
+
+    const langOf = (item) => languages[item.key] || item.q.coding?.allowedLanguages?.[0] || ''
+
+    const runItem = async (item, code) => {
+        const [sectionIndex, questionIndex] = item.key.split(':').map(Number)
+        const result = await runCode(attemptId, {
+            sectionIndex,
+            questionIndex,
+            language: langOf(item),
+            code,
+        })
+        setRunResults((prev) => ({ ...prev, [item.key]: result }))
     }
 
     const submit = useCallback(async () => {
@@ -90,7 +138,7 @@ const ExamRunner = () => {
         setError('')
         clearTimeout(saveTimer.current)
         try {
-            await submitAttempt(attemptId, toPayload(answersRef.current))
+            await submitAttempt(attemptId, toPayload(answersRef.current, languagesRef.current))
             navigate(`/results/${attemptId}`, { replace: true })
         } catch (err) {
             setError(err.message)
@@ -148,7 +196,19 @@ const ExamRunner = () => {
 
                         <p className="q-text">{item.q.question}</p>
 
-                        {item.q.type === 'mcq' ? (
+                        {item.q.type === 'coding' ? (
+                            <CodingQuestion
+                                key={item.key}
+                                q={item.q}
+                                value={value}
+                                language={langOf(item)}
+                                available={codingAvailable}
+                                result={runResults[item.key]}
+                                onCode={(v) => setAnswer(item.key, v)}
+                                onLanguage={(l) => setLanguage(item.key, l)}
+                                onRun={(code) => runItem(item, code)}
+                            />
+                        ) : item.q.type === 'mcq' ? (
                             item.q.options.map((opt, i) => (
                                 <button
                                     type="button"
@@ -224,7 +284,14 @@ const ExamRunner = () => {
                         >
                             {submitting ? 'Grading…' : 'Submit exam'}
                         </button>
-                        {submitting && <p className="form-hint">Grading your answers. This can take a few seconds.</p>}
+                        {submitting && (
+                            <p className="form-hint">
+                                Grading your answers.{' '}
+                                {hasCoding
+                                    ? 'Coding questions are run against every test, which can take up to a minute.'
+                                    : 'This can take a few seconds.'}
+                            </p>
+                        )}
                     </aside>
                 </div>
             </section>

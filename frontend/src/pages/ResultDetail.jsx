@@ -31,7 +31,11 @@ const ResultDetail = () => {
 
     const { attempt, test } = data
     const byKey = new Map(attempt.answers.map((a) => [`${a.sectionIndex}:${a.questionIndex}`, a]))
-    const needsReview = attempt.answers.some((a) => a.gradedBy === 'none' && a.answer)
+
+    const unjudgedCode = attempt.answers.some((a) => a.judge?.verdict === 'unavailable')
+    const needsReview = attempt.answers.some(
+        (a) => a.gradedBy === 'none' && a.answer && a.judge?.verdict !== 'unavailable'
+    )
     let number = 0
 
     return (
@@ -54,6 +58,13 @@ const ResultDetail = () => {
                         <div className="score-pct">{attempt.percentage}%</div>
                     </div>
                 </div>
+
+                {unjudgedCode && (
+                    <div className="banner-warn" style={{ margin: '16px 0' }}>
+                        The code runner was unavailable when you submitted, so some coding answers
+                        could not be judged and were given 0 marks for now.
+                    </div>
+                )}
 
                 {needsReview && (
                     <div className="form-error" style={{ margin: '16px 0' }}>

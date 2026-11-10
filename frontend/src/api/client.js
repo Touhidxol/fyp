@@ -1,7 +1,9 @@
 export class ApiError extends Error {
-    constructor(message, status) {
+    constructor(message, status, extra = {}) {
         super(message)
         this.status = status
+        this.code = extra.code // machine-readable, e.g. "busy", "rate_limited"
+        this.retryAfter = extra.retryAfter // seconds, when the server says so
     }
 }
 
@@ -29,7 +31,10 @@ export const request = async (path, { method = 'GET', body, form } = {}) => {
         const message = data.errors?.length
             ? data.errors.map((e) => e.message).join('. ')
             : data.message || 'Something went wrong'
-        throw new ApiError(message, res.status)
+        throw new ApiError(message, res.status, {
+            code: data.code,
+            retryAfter: data.retryAfter,
+        })
     }
 
     return data
