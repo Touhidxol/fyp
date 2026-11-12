@@ -7,6 +7,8 @@ from langchain_qdrant import QdrantVectorStore
 from qdrant_client import models
 from typing import Literal
 
+from .generate_coding import generate_coding_drafts, NoCodingContentError
+
 load_dotenv()
 
 class NoContentError(ValueError):
@@ -284,6 +286,7 @@ def generate_test_for_request(
     num_questions: int = 10,
     difficulty: str = "Moderate",
     duration_minutes: int | None = None,
+    num_coding: int = 0,
 ) -> dict:
     classification = classify_request(user_query)
     docs = retrieve_context(classification, notebook_id)
@@ -292,11 +295,25 @@ def generate_test_for_request(
         raise NoContentError(f"No content found for notebook '{notebook_id}'")
 
     context = build_context(docs)
+
+    # Coding first: if the material isn't suitable, fail before spending the MCQ call
+    coding_problems = []
+    if num_coding > 0:
+        coding_problems = generate_coding_drafts(
+            user_query, context, num_coding, difficulty
+        )
+        if not coding_problems:
+            raise NoCodingContentError(
+                "Could not create coding problems from this material. "
+                "It may not be about 2 or computation."
+            )
+
     test = generate_test(
         user_query, context, num_questions, difficulty, duration_minutes
     )
-    return test.model_dump()
-
+    result = test.model_dump()
+    result["coding_problems"] = coding_problems  # unverified drafts, the backend verifies them
+    return result
 
 # --------------------------------------------------
 # MAIN

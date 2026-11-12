@@ -26,3 +26,9 @@ export const CHECKER = "tokens";
 // Runs per user per minute. The free plan allows ~30 runs/min for everyone,
 // and each Run executes every sample test.
 export const RUN_LIMIT_PER_MINUTE = 6;
+
+// Extra minutes added to a generated test for each coding problem
+export const CODING_MINUTES_EACH = 15;
+
+// Marks per generated coding problem, by difficulty
+export const CODING_MARKS = { Easy: 10, Moderate: 15, Challenging: 20 };

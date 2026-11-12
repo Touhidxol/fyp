@@ -15,7 +15,8 @@ const generateSchema = z.object({
     query: z.string().trim().min(3, "Describe the test you want"),
     numQuestions: z.number().int().min(1).max(50).default(10),
     difficulty: z.enum(["Easy", "Moderate", "Challenging", "Mixed"]).default("Moderate"),
-    duration: z.number().int().min(5).max(180).optional()
+    duration: z.number().int().min(5).max(180).optional(),
+    numCoding: z.number().int().min(0).max(3).default(0)
 });
 
 const notFound = (res, what) =>

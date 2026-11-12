@@ -22,6 +22,7 @@ const CreateTest = () => {
     const [difficulty, setDifficulty] = useState('Moderate')
     const [duration, setDuration] = useState(30)
     const [questions, setQuestions] = useState(10)
+    const [coding, setCoding] = useState(0)
 
     useEffect(() => {
         listNotebooks()
@@ -61,6 +62,7 @@ const CreateTest = () => {
                 numQuestions: q,
                 difficulty,
                 duration: d,
+                numCoding: coding,
             })
             navigate(`/notebooks/${notebookId}`)
         } catch (err) {
@@ -178,6 +180,24 @@ const CreateTest = () => {
                                         <button type="button" className="btn btn-secondary" style={{ padding: '10px 14px' }} onClick={() => step(setQuestions, questions, 1, 1, 50)}>+</button>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="form-section">
+                            <h3>Coding problems</h3>
+                            <p>Add programming problems, each with hidden tests. Each adds 15 minutes and uses one extra AI call.</p>
+
+                            <div className="pill-group">
+                                {[0, 1, 2, 3].map((n) => (
+                                    <button
+                                        type="button"
+                                        key={n}
+                                        className={'pill' + (coding === n ? ' selected' : '')}
+                                        onClick={() => setCoding(n)}
+                                    >
+                                        {n === 0 ? 'None' : n}
+                                    </button>
+                                ))}
                             </div>
                         </div>
 

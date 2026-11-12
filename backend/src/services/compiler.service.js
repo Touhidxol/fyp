@@ -256,3 +256,44 @@ export const toJudgeSummary = (result) => {
         tests: result.tests.map((t) => ({ sample: t.sample, status: t.status }))
     };
 };
+
+// ---------- generation support ----------
+
+// Runs one program on several inputs and returns what it printed for each.
+// Used to compute expected outputs from a reference solution, so nothing an LLM
+// "calculated" is ever trusted as an expected output.
+// expected_output is left empty on purpose: every test stays visible, so the API
+// returns the real output. The verdicts here are not a grade.
+export const collectOutputs = async ({ language, code, inputs }) => {
+    if (!isCompilerConfigured()) {
+        throw new CompilerError("Code execution is not configured on this server", {
+            status: 503,
+            code: "not_configured"
+        });
+    }
+
+    const lang = LANGUAGES[language];
+    if (!lang) {
+        throw new CompilerError("Unsupported language", { status: 400, code: "bad_language" });
+    }
+    if (typeof code !== "string" || !code.trim() || code.length > MAX_CODE_CHARS) {
+        throw new CompilerError("Invalid reference solution", { status: 400, code: "rejected" });
+    }
+
+    const tests = inputs.map((input) => ({ input, expected_output: "", hidden: false }));
+
+    const data = await callWithRetry(
+        {
+            compiler: lang.compiler,
+            code,
+            tests,
+            time_limit: TIME_LIMIT_SECONDS,
+            checker: CHECKER,
+            scoring: "percent",
+            stop_on_failure: false
+        },
+        3
+    );
+
+    return normalize(data, tests);
+};
