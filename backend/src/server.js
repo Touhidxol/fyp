@@ -3,6 +3,7 @@ import "dotenv/config";
 import app from "./app.js";
 import connectDB from "./config/db.js";
 import Notebook from "./models/Notebook.js";
+import Attempt from "./models/Attempt.js";
 
 const PORT = process.env.PORT || 5000;
 
@@ -26,3 +27,7 @@ await Notebook.updateMany(
     },
     { arrayFilters: [{ "d.status": "processing" }] }
 );
+
+// An exam that was being graded when the server stopped goes back to
+// in_progress so the student can submit again.
+await Attempt.updateMany({ status: "grading" }, { $set: { status: "in_progress" } });

@@ -14,6 +14,9 @@ import {
 import { hitLimit } from "../utils/rateLimit.js";
 import { RUN_LIMIT_PER_MINUTE } from "../config/coding.js";
 
+// Covers autosave debounce + network delay around the deadline
+const GRACE_MS = 60 * 1000;
+
 const httpError = (status, message) => {
     const e = new Error(message);
     e.status = status;
@@ -22,6 +25,20 @@ const httpError = (status, message) => {
 
 const norm = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 const keyOf = (s, q) => `${s}:${q}`;
+
+// ---------- deadline ----------
+
+const deadlineOf = (attempt) =>
+    attempt.durationMinutes
+        ? new Date(attempt.startedAt).getTime() + attempt.durationMinutes * 60000
+        : null; // untimed test
+
+const pastDeadline = (attempt) => {
+    const deadline = deadlineOf(attempt);
+    return deadline !== null && Date.now() > deadline + GRACE_MS;
+};
+
+// ---------- what the client may see ----------
 
 // While the exam is running, the student must never receive the answers
 export const toExamTest = (test) => {
@@ -43,12 +60,18 @@ export const toReviewTest = (test) => {
     return obj;
 };
 
+// ---------- start / read / autosave ----------
+
 export const startAttempt = async (userId, testId) => {
     const test = await Test.findOne({ _id: testId, userId });
     if (!test) throw httpError(404, "Test not found");
 
-    // Resume an unfinished attempt instead of creating a second one
-    let attempt = await Attempt.findOne({ userId, testId, status: "in_progress" });
+    // Resume an unfinished attempt (including one being graded)
+    let attempt = await Attempt.findOne({
+        userId,
+        testId,
+        status: { $in: ["in_progress", "grading"] }
+    });
     if (!attempt) {
         attempt = await Attempt.create({
             userId,
@@ -81,13 +104,22 @@ export const listAttempts = async (userId) =>
         .sort({ createdAt: -1 });
 
 export const saveAnswers = async (attemptId, userId, answers) => {
-    const attempt = await Attempt.findOneAndUpdate(
-        { _id: attemptId, userId, status: "in_progress" },
-        { $set: { answers } },
-        { new: true }
-    );
+    const attempt = await Attempt.findOne({
+        _id: attemptId,
+        userId,
+        status: "in_progress"
+    }).select("status startedAt durationMinutes");
     if (!attempt) throw httpError(409, "Attempt not found or already submitted");
-    return attempt;
+    if (pastDeadline(attempt)) throw httpError(409, "Time is up");
+
+    // status in the filter again: a submit may have claimed it since the read
+    const res = await Attempt.updateOne(
+        { _id: attemptId, userId, status: "in_progress" },
+        { $set: { answers } }
+    );
+    if (res.matchedCount === 0) {
+        throw httpError(409, "Attempt not found or already submitted");
+    }
 };
 
 // ---------- Run (sample tests only) ----------
@@ -103,6 +135,7 @@ export const runCode = async (
         status: "in_progress"
     });
     if (!attempt) throw httpError(409, "Attempt not found or already submitted");
+    if (pastDeadline(attempt)) throw httpError(409, "Time is up");
 
     const test = await Test.findById(attempt.testId);
     if (!test) throw httpError(404, "The test for this attempt was deleted");
@@ -143,16 +176,14 @@ const markUnjudged = (r, message) => {
     r.judge = { verdict: "unavailable", passed: 0, total: 0, message: "", tests: [] };
 };
 
-export const submitAttempt = async (attemptId, userId, answers) => {
-    const attempt = await Attempt.findOne({ _id: attemptId, userId });
-    if (!attempt) throw httpError(404, "Attempt not found");
-    if (attempt.status === "submitted") throw httpError(409, "Attempt already submitted");
-
-    const test = await Test.findById(attempt.testId);
-    if (!test) throw httpError(404, "The test for this attempt was deleted");
+// `attempt` is already claimed (status "grading") by submitAttempt
+const gradeAttempt = async (attempt, test, answers) => {
+    // After the deadline (+grace) the client's payload is ignored:
+    // grade whatever was last autosaved.
+    const source = pastDeadline(attempt) ? attempt.answers : answers ?? attempt.answers;
 
     const given = new Map();
-    for (const a of answers ?? attempt.answers) {
+    for (const a of source) {
         given.set(keyOf(a.sectionIndex, a.questionIndex), {
             answer: a.answer,
             language: a.language
@@ -287,4 +318,36 @@ export const submitAttempt = async (attemptId, userId, answers) => {
     await attempt.save();
 
     return attempt;
+};
+
+export const submitAttempt = async (attemptId, userId, answers) => {
+    const existing = await Attempt.findOne({ _id: attemptId, userId });
+    if (!existing) throw httpError(404, "Attempt not found");
+    if (existing.status === "grading") {
+        throw httpError(409, "Your exam is already being graded");
+    }
+    if (existing.status === "submitted") throw httpError(409, "Attempt already submitted");
+
+    const test = await Test.findById(existing.testId);
+    if (!test) throw httpError(404, "The test for this attempt was deleted");
+
+    // Atomic claim: only one request can move in_progress -> grading,
+    // so a double click or a second tab can't judge (and spend runs) twice.
+    const attempt = await Attempt.findOneAndUpdate(
+        { _id: attemptId, userId, status: "in_progress" },
+        { $set: { status: "grading" } },
+        { new: true }
+    );
+    if (!attempt) throw httpError(409, "Your exam is already being graded");
+
+    try {
+        return await gradeAttempt(attempt, test, answers);
+    } catch (err) {
+        // Let the student retry instead of leaving the attempt stuck
+        await Attempt.updateOne(
+            { _id: attemptId, status: "grading" },
+            { $set: { status: "in_progress" } }
+        ).catch(() => { });
+        throw err;
+    }
 };

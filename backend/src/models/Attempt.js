@@ -45,7 +45,7 @@ const attemptSchema = new mongoose.Schema(
         userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
         testId: { type: mongoose.Schema.Types.ObjectId, ref: "Test", required: true, index: true },
         notebookId: { type: mongoose.Schema.Types.ObjectId, ref: "Notebook", required: true },
-        status: { type: String, enum: ["in_progress", "submitted"], default: "in_progress" },
+        status: { type: String, enum: ["in_progress", "grading", "submitted"], default: "in_progress" },
         startedAt: { type: Date, default: Date.now },
         submittedAt: { type: Date, default: null },
         durationMinutes: { type: Number, default: null },
