@@ -7,19 +7,22 @@ from pydantic import BaseModel, Field
 from pypdf.errors import PdfReadError
 
 from .generate_test import generate_test_for_request, NoContentError
+from .generate_coding import NoCodingContentError
 from .ingest import ingest_pdf, delete_document, delete_notebook, DocumentTooLargeError
 from .grading import grade_answers, GradeItem
-
 
 MAX_FILE_MB = int(os.getenv("MAX_FILE_MB", 25))
 
 app = FastAPI()
 
+
 @app.get("/")
 def root():
     return {"status": "Server is up and running"}
 
+
 # -----------------INGEST PDF DOCUMEnt------------------------------
+
 
 @app.post("/ingest")
 def ingest_endpoint(
@@ -62,7 +65,9 @@ def ingest_endpoint(
         if tmp_path and os.path.exists(tmp_path):
             os.remove(tmp_path)
 
+
 # -------------------GENERATE A TEST FROM INGESTED DOCUMENTS-------------------------
+
 
 class GenerateTestRequest(BaseModel):
     notebook_id: str
@@ -70,21 +75,31 @@ class GenerateTestRequest(BaseModel):
     num_questions: int = Field(10, ge=1, le=50)
     difficulty: str = Field("Moderate", pattern="^(Easy|Moderate|Challenging|Mixed)$")
     duration_minutes: int | None = Field(None, ge=5, le=180)
+    num_coding: int = Field(0, ge=0, le=3)
+
 
 @app.post("/generate-test")
 def generate_test_endpoint(body: GenerateTestRequest):
     try:
         return generate_test_for_request(
-            body.query, body.notebook_id,
-            body.num_questions, body.difficulty, body.duration_minutes,
+            body.query,
+            body.notebook_id,
+            body.num_questions,
+            body.difficulty,
+            body.duration_minutes,
+            body.num_coding,
         )
     except NoContentError as e:
         raise HTTPException(404, str(e))
+    except NoCodingContentError as e:
+        raise HTTPException(422, str(e))
     except Exception as e:
         # invalid model output, Gemini/Qdrant failure, etc.
         raise HTTPException(502, f"Test generation failed: {e}")
 
+
 # ----------------------EVALUATE A TEST ATTEMPT---------------------------
+
 
 class GradeRequest(BaseModel):
     items: list[GradeItem] = Field(..., min_length=1, max_length=100)
@@ -98,14 +113,18 @@ def grade_endpoint(body: GradeRequest):
     except Exception as e:
         raise HTTPException(502, f"Grading failed: {e}")
 
+
 # ------------------DELETE A DOCUMENT FROM QDRANT------------------------
+
 
 @app.delete("/documents/{document_id}")
 def delete_document_endpoint(document_id: str):
     delete_document(document_id)
     return {"deleted": document_id}
 
+
 # ------------DELETE DOCUMENTS WITH A CERTAIN NOTEBOOK ID------------------
+
 
 @app.delete("/notebooks/{notebook_id}")
 def delete_notebook_endpoint(notebook_id: str):

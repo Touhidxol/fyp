@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth.routes.js";
 import notebookRoutes from "./routes/notebook.routes.js";
 import testRoutes from "./routes/test.routes.js";
 import attemptRoutes from "./routes/attempt.routes.js";
+import codingRoutes from "./routes/coding.routes.js";
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/notebooks", auth, notebookRoutes);
 app.use("/api/tests", auth, testRoutes);
 app.use("/api/attempts", auth, attemptRoutes);
+app.use("/api/coding", auth, codingRoutes);
 
 app.get("/api/health", (req, res) => {
     res.json({

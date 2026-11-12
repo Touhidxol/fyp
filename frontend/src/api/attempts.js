@@ -9,3 +9,7 @@ export const saveAnswers = (id, answers) =>
     request(`/attempts/${id}/answers`, { method: 'PATCH', body: { answers } })
 export const submitAttempt = (id, answers) =>
     request(`/attempts/${id}/submit`, { method: 'POST', body: { answers } }).then((d) => d.attempt)
+
+// body: { sectionIndex, questionIndex, language, code } -> run result
+export const runCode = (id, body) =>
+    request(`/attempts/${id}/run`, { method: 'POST', body }).then((d) => d.result)

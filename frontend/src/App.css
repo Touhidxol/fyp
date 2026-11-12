@@ -277,7 +277,7 @@
 
 .page {
   width: 100%;
-  padding: 32px 0;
+  /* padding: 32px 0; */
 }
 
 /* ===== Cards ===== */
@@ -1421,5 +1421,214 @@ button.option:hover {
 
   .sheet-user .sidebar-user {
     flex: 1;
+  }
+}
+
+/* ===== Coding questions ===== */
+
+.coding {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.coding-meta {
+  display: grid;
+  gap: 12px;
+}
+
+.coding-meta p {
+  white-space: pre-wrap;
+  color: var(--text-heading);
+  font-size: 14px;
+}
+
+.coding .label,
+.sample .label,
+.run-result .label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.sample-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.sample {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: var(--bg);
+}
+
+.sample-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.code-block {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.code-block.error {
+  background: var(--danger-soft);
+  border-color: transparent;
+  color: var(--danger);
+}
+
+.coding-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.lang-select {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  font-size: 14px;
+  color: var(--text-heading);
+  background: var(--surface);
+}
+
+.code-editor {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.code-editor-loading {
+  padding: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.banner-warn {
+  background: var(--highlight-soft);
+  color: #93650f;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.run-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+}
+
+.run-summary,
+.test-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.run-summary {
+  justify-content: flex-start;
+}
+
+.verdict {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.verdict.ok {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.verdict.bad {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.verdict.muted {
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+  .sample-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Exam focus layout (no sidebar / navbar) ===== */
+
+.exam-shell {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.exam-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 32px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.exam-bar strong {
+  font-family: var(--display);
+  color: var(--text-heading);
+}
+
+.exam-bar .sidebar-brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+.exam-bar-tag {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: #93650f;
+  background: var(--highlight-soft);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+/* the old sticky offset assumed the 68px navbar */
+.exam-shell .exam-side {
+  top: 76px;
+}
+
+@media (max-width: 768px) {
+  .exam-bar {
+    padding: 0 20px;
   }
 }

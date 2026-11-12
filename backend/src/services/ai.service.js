@@ -1,27 +1,31 @@
 import axios from "axios";
 import fs from "fs";
 
-export const generateTestFromAI = async ({ notebookId, query, numQuestions, difficulty, duration }) => {
-    const baseURL = process.env.AI_SERVICE_URL || "http://localhost:8000";
+const aiBaseURL = () => process.env.AI_SERVICE_URL || "http://localhost:8000";
+
+export const generateTestFromAI = async ({
+    notebookId, query, numQuestions, difficulty, duration, numCoding = 0
+}) => {
 
     try {
-        const { data } = await axios.post(`${baseURL}/generate-test`,
+        const { data } = await axios.post(`${aiBaseURL}/generate-test`,
             {
                 notebook_id: notebookId,
                 query,
                 num_questions: numQuestions,
                 difficulty,
-                duration_minutes: duration ?? null
+                duration_minutes: duration ?? null,
+                num_coding: numCoding
             },
-            { timeout: 120000 }
+            // coding adds a second model call
+            { timeout: numCoding > 0 ? 240000 : 120000 }
         );
         return data;
     } catch (err) {
         if (err.response) {
-            const e = new Error(
-                err.response.data?.detail || "AI service error"
-            );
-            e.status = err.response.status === 404 ? 404 : 502;
+            const detail = err.response.data?.detail;
+            const e = new Error(typeof detail === "string" ? detail : "AI service error");
+            e.status = [404, 422].includes(err.response.status) ? err.response.status : 502;
             throw e;
         }
         const e = new Error("AI service is unreachable");
@@ -30,7 +34,6 @@ export const generateTestFromAI = async ({ notebookId, query, numQuestions, diff
     }
 };
 
-const aiBaseURL = () => process.env.AI_SERVICE_URL || "http://localhost:8000";
 
 const aiError = async (res) => {
     const body = await res.json().catch(() => ({}));
