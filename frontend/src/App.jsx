@@ -5,6 +5,7 @@ import './App.css'
 
 import AuthProvider from './context/AuthProvider'
 import ProtectedLayout from './components/ProtectedLayout'
+import ExamLayout from './components/ExamLayout'
 
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -27,7 +28,12 @@ const App = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Everything below needs a logged-in user */}
+          {/* Taking an exam: no sidebar, no navbar */}
+          <Route element={<ExamLayout />}>
+            <Route path="/exam/:attemptId" element={<ExamRunner />} />
+          </Route>
+
+          {/* Everything else needs a logged-in user, with the full app shell */}
           <Route element={<ProtectedLayout />}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -35,12 +41,8 @@ const App = () => {
             <Route path="/notebooks/:id" element={<NotebookDetail />} />
             <Route path="/create-test" element={<CreateTest />} />
             <Route path="/tests" element={<Tests />} />
-            <Route path="/exam" element={<Exam />} />
-            <Route path="/results" element={<Results />} />
-            <Route path="/tests" element={<Tests />} />
             <Route path="/tests/:id" element={<TestView />} />
             <Route path="/exam" element={<Exam />} />
-            <Route path="/exam/:attemptId" element={<ExamRunner />} />
             <Route path="/results" element={<Results />} />
             <Route path="/results/:attemptId" element={<ResultDetail />} />
           </Route>

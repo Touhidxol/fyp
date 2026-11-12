@@ -38,18 +38,25 @@ const ExamRunner = () => {
     const [now, setNow] = useState(() => Date.now())
     const [error, setError] = useState('')
     const [submitting, setSubmitting] = useState(false)
+    const [grading, setGrading] = useState(false) // server is already grading this attempt
+    const [reloadKey, setReloadKey] = useState(0)
 
     // refs hold the latest values for timers/auto-submit without re-creating callbacks
     const answersRef = useRef({})
     const languagesRef = useRef({})
     const submittingRef = useRef(false)
     const saveTimer = useRef(null)
+    const dirtyRef = useRef(false) // edits not yet sent to the server
 
     useEffect(() => {
         getAttempt(attemptId)
             .then(({ attempt, test }) => {
                 if (attempt.status === 'submitted') {
                     navigate(`/results/${attemptId}`, { replace: true })
+                    return
+                }
+                if (attempt.status === 'grading') {
+                    setGrading(true)
                     return
                 }
                 const initial = {}
@@ -66,7 +73,26 @@ const ExamRunner = () => {
                 setData({ attempt, test })
             })
             .catch((err) => setError(err.message))
-    }, [attemptId, navigate])
+    }, [attemptId, navigate, reloadKey])
+
+    // Grading is happening on the server: wait for it instead of showing the exam
+    useEffect(() => {
+        if (!grading) return
+        const timer = setInterval(() => {
+            getAttempt(attemptId)
+                .then(({ attempt }) => {
+                    if (attempt.status === 'submitted') {
+                        navigate(`/results/${attemptId}`, { replace: true })
+                    } else if (attempt.status === 'in_progress') {
+                        // grading failed and was rolled back: back to the exam
+                        setGrading(false)
+                        setReloadKey((k) => k + 1)
+                    }
+                })
+                .catch(() => { })
+        }, 3000)
+        return () => clearInterval(timer)
+    }, [grading, attemptId, navigate])
 
     // 1-second clock
     useEffect(() => {
@@ -74,7 +100,26 @@ const ExamRunner = () => {
         return () => clearInterval(timer)
     }, [])
 
-    useEffect(() => () => clearTimeout(saveTimer.current), [])
+    // Leaving the page: send pending edits instead of dropping them
+    useEffect(
+        () => () => {
+            clearTimeout(saveTimer.current)
+            if (dirtyRef.current && !submittingRef.current) {
+                saveAnswers(attemptId, toPayload(answersRef.current, languagesRef.current)).catch(() => { })
+            }
+        },
+        [attemptId]
+    )
+
+    // Warn before closing or refreshing the tab mid-exam
+    useEffect(() => {
+        const onBeforeUnload = (e) => {
+            e.preventDefault()
+            e.returnValue = ''
+        }
+        window.addEventListener('beforeunload', onBeforeUnload)
+        return () => window.removeEventListener('beforeunload', onBeforeUnload)
+    }, [])
 
     const questions = useMemo(() => {
         if (!data) return []
@@ -98,8 +143,10 @@ const ExamRunner = () => {
 
     // debounced autosave so a refresh/crash doesn't lose work
     const scheduleSave = () => {
+        dirtyRef.current = true
         clearTimeout(saveTimer.current)
         saveTimer.current = setTimeout(() => {
+            dirtyRef.current = false
             saveAnswers(attemptId, toPayload(answersRef.current, languagesRef.current)).catch(() => { })
         }, 1500)
     }
@@ -137,20 +184,27 @@ const ExamRunner = () => {
         setSubmitting(true)
         setError('')
         clearTimeout(saveTimer.current)
+        dirtyRef.current = false
         try {
             await submitAttempt(attemptId, toPayload(answersRef.current, languagesRef.current))
             navigate(`/results/${attemptId}`, { replace: true })
         } catch (err) {
-            setError(err.message)
             submittingRef.current = false
             setSubmitting(false)
+            if (err.status === 409) {
+                // Already submitted or being graded (another tab, a double click,
+                // or a lost response): wait for the server to finish.
+                setGrading(true)
+                return
+            }
+            setError(err.message)
         }
     }, [attemptId, navigate])
 
     // time is up: submit automatically
     useEffect(() => {
-        if (remaining !== null && remaining <= 0) submit()
-    }, [remaining, submit])
+        if (!grading && remaining !== null && remaining <= 0) submit()
+    }, [grading, remaining, submit])
 
     const onSubmitClick = () => {
         const unanswered = questions.filter((x) => !answers[x.key]?.trim()).length
@@ -160,10 +214,32 @@ const ExamRunner = () => {
         if (window.confirm(msg)) submit()
     }
 
+    const onLeave = () => {
+        if (window.confirm('Leave the exam? Your timer keeps running. You can resume from the Exam page.')) {
+            navigate('/exam')
+        }
+    }
+
     if (error && !data) {
         return (
             <main className="container">
                 <section className="page"><div className="form-error">{error}</div></section>
+            </main>
+        )
+    }
+
+    if (grading) {
+        return (
+            <main className="container">
+                <section className="page">
+                    <div className="card empty-state">
+                        <h3>Grading your exam…</h3>
+                        <p>
+                            Your answers are in. Coding questions are run against every test, so this
+                            can take up to a minute. You’ll be taken to your results automatically.
+                        </p>
+                    </div>
+                </section>
             </main>
         )
     }
@@ -183,6 +259,7 @@ const ExamRunner = () => {
                         <h1>{data.test.title}</h1>
                         <p>{item.section}</p>
                     </div>
+                    <button className="btn btn-secondary btn-sm" onClick={onLeave}>Leave exam</button>
                 </div>
 
                 {error && <div className="form-error" style={{ marginBottom: 16 }}>{error}</div>}

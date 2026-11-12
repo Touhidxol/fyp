@@ -277,7 +277,7 @@
 
 .page {
   width: 100%;
-  padding: 32px 0;
+  /* padding: 32px 0; */
 }
 
 /* ===== Cards ===== */
@@ -1577,5 +1577,58 @@ button.option:hover {
 @media (max-width: 768px) {
   .sample-cols {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Exam focus layout (no sidebar / navbar) ===== */
+
+.exam-shell {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.exam-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 32px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.exam-bar strong {
+  font-family: var(--display);
+  color: var(--text-heading);
+}
+
+.exam-bar .sidebar-brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+.exam-bar-tag {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: #93650f;
+  background: var(--highlight-soft);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+/* the old sticky offset assumed the 68px navbar */
+.exam-shell .exam-side {
+  top: 76px;
+}
+
+@media (max-width: 768px) {
+  .exam-bar {
+    padding: 0 20px;
   }
 }
